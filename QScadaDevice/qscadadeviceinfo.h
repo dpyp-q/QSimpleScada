@@ -56,10 +56,13 @@ private:
     QString	mHost;
     QHostAddress mIp;
     QHostAddress mIpv6;
-    quint32 mInterfaceIndex;
-    quint16	mPort;
-    QScadaStatus mDeviceStatus;
-    int mUnitCount;
+    // 以下成员原本既无构造函数也无默认值：在赋值前读取它们是未定义行为，
+    // 而 operator== 恰恰会去比较它们，等于拿未初始化内存做判断。
+    // 这里用类内初始值给出一组安全默认（端口按 Modbus TCP 惯例取 502）。
+    quint32 mInterfaceIndex = 0;
+    quint16	mPort = 502;
+    QScadaStatus mDeviceStatus = QScadaStatusDefault;
+    int mUnitCount = 0;
     QList<int> mBoardIds;
 };
 

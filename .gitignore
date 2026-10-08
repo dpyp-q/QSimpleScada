@@ -30,3 +30,7 @@
 *.exe
 *.out
 *.app
+
+# Build output (qmake shadow build and library output dir)
+build-mingw/
+QSimpleScadaLib/

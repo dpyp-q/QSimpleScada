@@ -17,7 +17,8 @@ QScadaBoard::QScadaBoard(int id, QWidget *parent) :
     mEditable{false},
     mShowGrid{true},
     mGrid{10},
-    mGridPixmap{nullptr}
+    mGridPixmap{nullptr},
+    mUpdateGridPixmap{true} // 原代码未初始化该成员，paintEvent 读取它属未定义行为
 {
     setPalette(QPalette(Qt::transparent));
     setAutoFillBackground(true);
@@ -34,7 +35,8 @@ QScadaBoard::QScadaBoard(QScadaBoardInfo *boardInfo, QWidget *parent):
     mEditable{false},
     mShowGrid{true},
     mGrid{10},
-    mGridPixmap{nullptr}
+    mGridPixmap{nullptr},
+    mUpdateGridPixmap{true}
 {
     this->initBoard(boardInfo);
 }
@@ -43,6 +45,10 @@ QScadaBoard::~QScadaBoard()
 {
     qDeleteAll(*mObjects);
     delete mObjects;
+    // 网格位图原本在析构时被漏掉：每销毁一块板就泄漏一张与窗口等大的位图，
+    // 1920x1080 下约 8 MB，反复打开工程会很快把内存吃光。
+    delete mGridPixmap;
+    mGridPixmap = nullptr;
 }
 
 void QScadaBoard::initBoard(QScadaBoardInfo *boardInfo)
@@ -141,12 +147,15 @@ void QScadaBoard::paintEvent(QPaintEvent *e)
             int lX = this->width();
             int lY = this->height();
 
-            mGridPixmap->scaledToWidth(lX);
-            mGridPixmap->scaledToHeight(lY);
-
-            for (int i=0; i<=lX; i++) {
-                for (int j=1; j<=lY; j++) {
-                    lPainter.drawPoint(QPoint(mGrid*i, mGrid*j));
+            // 原实现把"像素宽高"当成了循环次数：
+            //     for (i=0..lX) for (j=1..lY) drawPoint(mGrid*i, mGrid*j)
+            // 于是 1920x1080 的板要执行约 207 万次 drawPoint，其中绝大多数
+            // 落在位图之外被裁剪掉，但函数调用开销照付——拖动窗口会明显卡顿。
+            // 网格点的数量本来就是 (宽/格距) x (高/格距)，直接按格距步进即可，
+            // 点数下降两个数量级。
+            for (int y = 0; y <= lY; y += mGrid) {
+                for (int x = 0; x <= lX; x += mGrid) {
+                    lPainter.drawPoint(QPoint(x, y));
                 }
             }
 
@@ -263,23 +272,53 @@ int QScadaBoard::grid() const
 
 void QScadaBoard::setGrid(int grid)
 {
+    // 格距必须为正：为 0 会让上面的绘制循环步进为 0 而陷入死循环。
+    if (grid <= 0)
+        return;
+
     mGrid = grid;
+
+    // 改了格距必须让缓存的网格位图失效并重绘，
+    // 否则新格距要等到窗口尺寸变化才会生效（原实现即有此问题）。
+    mUpdateGridPixmap = true;
+    update();
 }
 
 void QScadaBoard::deleteObjectWithId(int id)
 {
-    for (QScadaObject *object : *mObjects) {
-        if (id == object->info()->id()) {
-            mObjects->removeOne(object);
-            delete object;
-            repaint();
-        }
+    // 原实现在 range-for 循环体内 removeOne + delete：
+    // 容器被修改后 range-for 缓存的迭代器立即失效，且后续还会解引用已释放的对象，
+    // 属未定义行为。现场表现为"删除图元时偶发崩溃"，且很难复现。
+    // 改为两阶段：先收集待删对象，再统一下树、析构，最后才重绘。
+    QList<QScadaObject *> doomed;
+    for (int i = 0; i < mObjects->size(); ++i) {
+        QScadaObject *object = mObjects->at(i);
+        if (object != nullptr && id == object->info()->id())
+            doomed.append(object);
     }
+
+    for (int i = 0; i < doomed.size(); ++i) {
+        mObjects->removeOne(doomed.at(i));
+        delete doomed.at(i);
+    }
+
+    if (!doomed.isEmpty())
+        repaint();
 }
 
 void QScadaBoard::deleteObject(QScadaObject *object)
 {
-    deleteObjectWithId(object->info()->id());
+    if (object == nullptr)
+        return;
+
+    // 必须按指针删除而不是按 id：编辑器允许两个图元拿到同一个 id
+    // （新 id 取的是图元个数，删掉一个再新建就会撞车）。
+    // 若按 id 删，会连带删掉同 id 的另一个图元，调用方手里的指针随即悬垂，
+    // 后续再删一次就是二次释放。
+    if (mObjects->removeOne(object)) {
+        delete object;
+        repaint();
+    }
 }
 
 void QScadaBoard::updateObjectWithId(int id)

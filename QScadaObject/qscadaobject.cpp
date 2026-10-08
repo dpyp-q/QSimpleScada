@@ -227,7 +227,11 @@ void QScadaObject::move(int x, int y)
                 geometry().width(),
                 geometry().height());
 
-    if (x != 0 && x != 0) {
+    // 原实现是 `if (x != 0 && x != 0)`：第二个条件本应是 y，属于复制粘贴错误。
+    // 即使只改对变量名，用 && 也会漏掉"纯水平/纯垂直拖动"这两种最常见的情况，
+    // 表现为沿 X 轴拖动时属性对话框里的坐标不更新。因此这里用 ||：
+    // 只要位置真的变了就通知。
+    if (x != 0 || y != 0) {
         emit objectMove(lX, lY);
     }
 }

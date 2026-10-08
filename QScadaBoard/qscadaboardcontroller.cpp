@@ -11,6 +11,7 @@
 #include <QMenu>
 #include <QDebug>
 #include <QMessageBox>
+#include <QtGlobal>
 
 QScadaBoardController::QScadaBoardController(QWidget *parent) :
     QWidget(parent),
@@ -43,9 +44,18 @@ void QScadaBoardController::appendDevice(QScadaDeviceInfo *deviceInfo)
 
 void QScadaBoardController::clearBoard(QScadaBoard* board)
 {
-    for (QScadaObject *object : *board->objects()) {
-        board->deleteObject(object);
-    }
+    if (board == nullptr)
+        return;
+
+    // 原实现直接遍历 board->objects()，而它返回的是 board 内部容器本身，
+    // 循环体内又在删除元素 —— 迭代器失效，属未定义行为。
+    // 这条路径并不冷门：clearAllBoards / resetAllboards 都会走到，
+    // 也就是说每打开第二个工程都会触发一次。
+    // 先复制一份指针列表，再逐个删除（deleteObject 现在按指针删，不会误伤同 id 图元）。
+    const QList<QScadaObject *> objects = *board->objects();
+    for (int i = 0; i < objects.size(); ++i)
+        board->deleteObject(objects.at(i));
+
     board->update();
 }
 
@@ -261,7 +271,12 @@ void QScadaBoardController::openProject(QString file)
         QFile lFile(file);
         if (lFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream lStreamFileOut(&lFile);
+            // Qt 6 的 QTextStream 固定使用 UTF-8 并删除了 setCodec()；
+            // 而 Qt 5 的默认编码跟随系统区域设置（中文 Windows 下是 GBK），
+            // 所以必须做版本分支，否则读中文工程文件会变乱码。
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
             lStreamFileOut.setCodec("UTF-8");
+#endif
             lRawData = lStreamFileOut.readAll().toUtf8();
             lFile.close();
 
@@ -312,7 +327,9 @@ void QScadaBoardController::saveProject(QString file)
         QFile lFile(file);
         if (lFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream lOut(&lFile);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
             lOut.setCodec("UTF-8");
+#endif
             lOut << lDevices;
         } else {
             QString lMessage(tr("Something went wrong while trying to create file"));

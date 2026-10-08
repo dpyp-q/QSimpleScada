@@ -96,9 +96,13 @@ void QScadaDeviceInfo::setPort(const quint16 &port)
 
 bool QScadaDeviceInfo::operator ==(const QScadaDeviceInfo &other)
 {
+    // 原实现把 mHost 比较了两次、且完全不比较 mBoardIds，
+    // 于是"设备相同"的判断会漏掉板列表差异（板列表不同却判为相等）。
     return mName == other.mName && mType == other.mType && mHost == other.mHost &&
-            mInterfaceIndex == other.mInterfaceIndex && mIp == other.mIp && mIpv6 == other.mIpv6 && mDomain == other.mDomain &&
-            mHost == other.mHost && mDeviceStatus == other.mDeviceStatus && mUnitCount == other.mUnitCount;
+            mInterfaceIndex == other.mInterfaceIndex && mIp == other.mIp &&
+            mIpv6 == other.mIpv6 && mDomain == other.mDomain &&
+            mDeviceStatus == other.mDeviceStatus && mUnitCount == other.mUnitCount &&
+            mBoardIds == other.mBoardIds;
 }
 
 QScadaStatus QScadaDeviceInfo::deviceStatus() const
