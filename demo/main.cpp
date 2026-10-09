@@ -14,6 +14,22 @@
 #include <QHostAddress>
 #include <QTimer>
 #include <QDebug>
+#include <QDir>
+#include <cstdio>
+
+// 无控制台模式（Windows subsystem）下 qDebug 无处输出：用自定义消息处理器
+// 把日志写到 exe 同目录的 demo_log.txt，界面不留黑窗、日志照样可查。
+static void fileMessageHandler(QtMsgType type, const QMessageLogContext &ctx, const QString &msg)
+{
+    Q_UNUSED(type)
+    Q_UNUSED(ctx)
+    QDir::setCurrent(QCoreApplication::applicationDirPath());
+    FILE *f = fopen("demo_log.txt", "a");
+    if (f) {
+        fprintf(f, "%s\n", msg.toUtf8().constData());
+        fclose(f);
+    }
+}
 
 #include "qscadaboardcontroller.h"
 #include "qscadaboard.h"
@@ -59,6 +75,7 @@ void addTag(QScadaRegisterMap &map,
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    qInstallMessageHandler(fileMessageHandler);
 
     // ---------- 1. 原框架：设备 + 仪表盘控制器 ----------
     QScadaBoardController *controller = new QScadaBoardController();

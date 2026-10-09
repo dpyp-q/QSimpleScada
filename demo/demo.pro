@@ -4,7 +4,7 @@ QT += widgets quick quickwidgets network sql
 
 TEMPLATE = app
 TARGET = QSimpleScadaDemo
-CONFIG += c++11 console
+CONFIG += c++11
 
 INCLUDEPATH += \
     .. \

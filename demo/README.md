@@ -34,19 +34,20 @@ Copy-Item ..\..\demo\indicator.qml release\   # QML 图元随构建产物复制
 
 ## 运行与验证
 
-```powershell
-python build-mingw\demo\check_run.py        # 前置 Qt/MinGW PATH，抓日志，8s 后报存活
-```
-
-预期日志（`build-mingw\demo\release\run_log2.txt`）：
+双击 `demo\start_demo.bat` 即可启动（脚本会先配好 Qt/MinGW 的 PATH）。
+程序为 Windows subsystem（无黑色控制台窗口），运行日志写到
+exe 同目录 `release\demo_log.txt`：
 
 ```
+[demo] QML widget: ".../release/indicator.qml"
 [demo] view bridge bindings: 3
-qml: [indicator] update received: 主轴 Spindle -> 2016.44      # 每秒一个值，节流=0
+[demo] 数据链路已启动：点表 -> 中枢 -> 仿真驱动 -> updateValue -> QML 图元
 [demo] hub: published= 3  cached= 3  pts/s= 3  | bridge: applied= 3  coalesced= 0
 ```
 
 `applied` 与 `published` 同步增长 = 数据链路畅通；`coalesced=0` = 低频采集无合并（高频点表下该值会增长）。
+无控制台版本的日志由自定义 Qt 消息处理器写入文件（`qInstallMessageHandler`），
+`freopen(stderr)` 在 GUI 程序下不可靠。
 
 ## 调试踩坑记录（可复现）
 
