@@ -100,6 +100,10 @@ QScadaAlarmRule::Evaluation QScadaAlarmRule::evaluate(double value, double rateP
         break;
     case RateOfChange:
         result.limit = mThreshold;
+        // 变化率规则里"参与比较的量"是 dv/dt 而不是瞬时值：
+        // 触发值、{value} 占位符、事件记录必须体现"速率"这一判定依据，
+        // 否则报警文本会显示"变化率 200/s"，而 200 其实是当时的测点值。
+        result.value = ratePerSecond;
         // 判定用绝对值，但保留正负号：工艺上"温度快速上升"和"快速下降"
         // 是两种完全不同的故障，报警记录里丢掉方向就失去了诊断价值。
         result.exceeded = (qAbs(ratePerSecond) > mThreshold);

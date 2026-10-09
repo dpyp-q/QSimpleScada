@@ -258,8 +258,8 @@ const QList<QScadaAlarmEvent> active = alarm->activeAlarms();  // 仅仍在越�
 
 ## 11. 构建与边界
 
-- 已包含在 `com_indeema_QSimpleScada.pri` 的 `SOURCES` / `HEADERS` 中，随主库一起编译；仅依赖 `QtCore`（`QT += core`），不需要 network / sql / gui。
+- 已包含在 `com_indeema_QSimpleScada.pri` 的 `SOURCES` / `HEADERS` 中，随主库一起编译；业务逻辑只依赖 `QtCore`，唯一的 GUI 模块引用是 `qscadaalarmlevel.h` 里的 `QColor`（等级颜色辅助，纯数据、无显示环境可用）。
 - Qt 5.12 与 Qt 6 双兼容，无 `#if QT_VERSION` 分支（本模块未用到版本差异 API）。
 - 引擎**不是数据库、不是界面**：历史默认只留内存 1000 条；报警条样式、声光联动由界面层基于信号实现；长期留档走 QScadaStorage / QScadaMes。
 - 规则 id 与事件 id 都是去花括号的 UUID（`newRuleId()` / `newEventId()`），保证跨重启、跨机器不重复——MES 侧按 `eventId` 幂等去重。
-- 本模块暂未包含单元测试工程；被测对象为纯逻辑（rule 的 `evaluate`/`isRecovered`、event 的状态机迁移），建议在 QScadaTests 中补充 `qscadaalarmrule` 与 `qscadaalarmevent` 两组用例（不依赖硬件与 GUI，可直接进 CI）。
+- 单元测试：`QScadaTests/alarm/tst_qscadaalarm.cpp`（46 个用例：规则判定与死区 16、事件状态机 10、引擎生命周期 20），只依赖 QtCore + QtTest + QtGui（QColor），可在无显示环境直接跑。测试还抓出并修复了一个真实缺陷：变化率规则 `evaluate()` 原先把 `Evaluation.value` 填成**测点值**而非速率，导致报警文本出现"变化率 200/s"而 200 实为当时的测点值；现已修正为记录 dv/dt（带方向），与默认模板、`QScadaAlarmEvent::triggerValue` 的既有约定一致。

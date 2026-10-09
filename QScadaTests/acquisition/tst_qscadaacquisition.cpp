@@ -17,10 +17,10 @@
 #include <QtTest>
 #include <QSignalSpy>
 
-#include "../QScadaAcquisition/qscadamodbuscodec.h"
-#include "../QScadaAcquisition/qscadatagdefinition.h"
-#include "../QScadaAcquisition/qscadaregistermap.h"
-#include "../QScadaAcquisition/qscadadatahub.h"
+#include "../../QScadaAcquisition/qscadamodbuscodec.h"
+#include "../../QScadaAcquisition/qscadatagdefinition.h"
+#include "../../QScadaAcquisition/qscadaregistermap.h"
+#include "../../QScadaAcquisition/qscadadatahub.h"
 
 class TestQScadaAcquisition : public QObject
 {
